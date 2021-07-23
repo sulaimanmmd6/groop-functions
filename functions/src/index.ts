@@ -18,3 +18,4 @@ exports.onUserRemoved = baseTriggers.onUserRemoved;
 
 // User functions
 exports.user = require('./user_functions');
+exports.group = require('./group_functions');

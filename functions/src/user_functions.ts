@@ -1,7 +1,8 @@
 import { https, } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import {COLLS} from './constants/storage';
 
-let userCollection = admin.firestore().collection('user');
+let userCollection = admin.firestore().collection(COLLS.USER_COLLECTION);
 
 export const register = https.onCall(
 	async (data: { username: string, fullName: string }, context) => {
