@@ -1,4 +1,6 @@
-export interface Group {
+import { BaseModel } from "./base_model";
+
+export interface Group extends BaseModel {
 	id: string;
 	creatorId: string;
 	creatorType: string;
@@ -8,12 +10,14 @@ export interface Group {
 	description: string;
 }
 
-export interface GroupUser {
+export interface GroupUser extends BaseModel {
 	uid: string,
 	isAdmin: Boolean,
+	status: 'REQUESTED' | 'ACCEPTED',
 }
 
-export interface UserGroup {
+export interface UserGroup extends BaseModel {
 	gid: string,
 	isOwner: Boolean,
+	status: 'REQUESTED' | 'ACCEPTED',
 }
