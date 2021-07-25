@@ -9,6 +9,11 @@ export interface Group {
 }
 
 export interface GroupUser {
-	id: string,
+	uid: string,
 	isAdmin: Boolean,
+}
+
+export interface UserGroup {
+	gid: string,
+	isOwner: Boolean,
 }

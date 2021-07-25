@@ -1,7 +1,8 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { COLLS } from './constants/storage';
-import { Group, GroupUser } from './types/group';
+import { Group, GroupUser, UserGroup } from './types/group';
+import { incrementOnTransaction } from './utils/incrmentor';
 
 let groupCollection = admin.firestore().collection(COLLS.GROUP_COLLECTION);
 
@@ -20,19 +21,22 @@ export const create = functions.https.onCall(
 		//
 		// Refrences
 		//
+		let creatorGroup = admin.firestore().doc(COLLS.USER_GROUP_DOC(auth.uid, createdGroup.id))
 		let groupDocRef = admin.firestore().doc(COLLS.GROUP_DOC(createdGroup.id))
 		let groupUsersDocRef = admin.firestore().doc(COLLS.GROUP_USER_DOC(createdGroup.id, auth.uid));
 		// let userGroupCollDocRef = doc(COLLS.USER_GROUP_DOC(group.id, auth.uid));
 
 		await admin.firestore().runTransaction(async (t) => {
 			// Add first user
-			let firstUser: GroupUser = { id: auth.uid, isAdmin: true, };
+			let firstUser: GroupUser = { uid: auth.uid, isAdmin: true, };
 			await t.create(groupUsersDocRef, firstUser)
 
 			// update user count
-			await t.update(groupDocRef, {
-				'totalUsers': admin.firestore.FieldValue.increment(1),
-			})
+			await incrementOnTransaction(t, groupDocRef, 'totalUsers', 1);
+
+			// Add created group to creator group list
+			let userGroup: UserGroup = { gid: createdGroup.id, isOwner: true, };
+			await t.create(creatorGroup, userGroup);
 		})
 
 		return createdGroup.id;
