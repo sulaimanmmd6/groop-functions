@@ -12,12 +12,14 @@ export interface Group extends BaseModel {
 
 export interface GroupUser extends BaseModel {
 	uid: string,
+	gid: string,
 	isAdmin: Boolean,
 	status: 'REQUESTED' | 'ACCEPTED',
 }
 
 export interface UserGroup extends BaseModel {
 	gid: string,
+	uid: string,
 	isOwner: Boolean,
 	status: 'REQUESTED' | 'ACCEPTED',
 }
