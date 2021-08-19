@@ -3,19 +3,8 @@ import * as admin from 'firebase-admin';
 
 admin.initializeApp();
 
-// // Start writing Firebase Functions
-// // https://firebase.google.com/docs/functions/typescript
-//
-// export const helloWorld = functions.https.onRequest((request, response) => {
-//   functions.logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
-
-// Base triggers
-import * as baseTriggers from './base_document_triggers';
-exports.onUserAdded = baseTriggers.onUserAdded;
-exports.onUserRemoved = baseTriggers.onUserRemoved;
-
-// User functions
+exports.crud = require('./base_document_triggers');
 exports.user = require('./user_functions');
 exports.group = require('./group_functions');
+exports.post = require('./post_functions');
+// exports.file = require('./file_functions');

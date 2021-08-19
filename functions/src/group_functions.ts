@@ -4,8 +4,6 @@ import { COLLS } from './constants/storage';
 import { Group, GroupUser, UserGroup } from './types/group';
 import { incrementOnTransaction } from './utils/incrmentor';
 
-const firebaseTools = require('firebase-tools');
-
 let groupCollection = admin.firestore().collection(COLLS.GROUP_COLLECTION);
 
 //
@@ -41,6 +39,7 @@ export const create = functions.https.onCall(
 				isAdmin: true,
 				createdAt: admin.firestore.FieldValue.serverTimestamp()
 			};
+
 			await t.create(groupUsersDocRef, firstUser)
 
 			// update user count
@@ -64,7 +63,7 @@ export const create = functions.https.onCall(
 //
 // JOIN REQUET TO A GROUP
 //
-export const join = functions.https.onCall(async ({ gid, uid, }: { gid: string, uid:string }, { auth }) => {
+export const join = functions.https.onCall(async ({ gid, uid, }: { gid: string, uid: string }, { auth }) => {
 
 	if (!auth) {
 		return new functions.https.HttpsError('unauthenticated', 'You need to login by phone firstly.');
@@ -76,20 +75,26 @@ export const join = functions.https.onCall(async ({ gid, uid, }: { gid: string, 
 	let userGroupDocRef = admin.firestore().doc(COLLS.USER_GROUP_DOC(uid || auth.uid, gid))
 	let groupUsersDocRef = admin.firestore().doc(COLLS.GROUP_USER_DOC(gid, uid || auth.uid));
 
+	let groupDocRef = admin.firestore().doc(COLLS.GROUP_DOC(gid));
+	let group = await groupDocRef.get().then(sp => sp.data() as Group);
+
 	//
 	// Check User not added already
 	//
 	let addedUserSp = await userGroupDocRef.get();
 
-	if(addedUserSp.exists) {
+	if (addedUserSp.exists) {
 		return new functions.https.HttpsError('already-exists', 'User has been join already.');
 	}
 
 
 	return admin.firestore().runTransaction(async (t) => {
+
+		let status: "ACCEPTED" | "REQUESTED" = group.type == 'PUBLIC' ? 'ACCEPTED' : 'REQUESTED';
+
 		// Add  user to group
 		let newUserOfGroup: GroupUser = {
-			status: 'REQUESTED',
+			status: status,
 			uid: uid || auth.uid,
 			gid: gid,
 			isAdmin: false,
@@ -99,17 +104,21 @@ export const join = functions.https.onCall(async ({ gid, uid, }: { gid: string, 
 
 		// Add created group to user group list
 		let userGroup: UserGroup = {
-			status: 'REQUESTED',
+			status: status,
 			gid: gid,
 			uid: uid || auth.uid,
 			isOwner: false,
 			createdAt: admin.firestore.FieldValue.serverTimestamp()
 		};
+
 		await t.set(userGroupDocRef, userGroup);
+
+		if (status == 'ACCEPTED')
+			await incrementOnTransaction(t, groupDocRef, 'totalUsers', 1);
 	})
-	.then(_ => {
-		return groupUsersDocRef.get().then(_ => _.data());
-	})
+		.then(_ => {
+			return groupUsersDocRef.get().then(_ => _.data());
+		})
 })
 
 //
@@ -126,7 +135,7 @@ export const accept = functions.https.onCall(({ gid, uid, accepted, }: AcceptCon
 	// Refrences
 	//
 	let userGroupDocRef = admin.firestore().doc(COLLS.USER_GROUP_DOC(uid, gid))
-	let groupDocRef = admin.firestore().doc(COLLS.GROUP_DOC(gid))
+	let groupDocRef = admin.firestore().doc(COLLS.GROUP_DOC(gid));
 	let groupUsersDocRef = admin.firestore().doc(COLLS.GROUP_USER_DOC(gid, uid));
 
 
@@ -163,7 +172,6 @@ export const leave = functions.https.onCall(({ gid }: { gid: string }, { auth })
 
 
 	return admin.firestore().runTransaction(async (t) => {
-
 		await t.delete(groupUsersDocRef)
 		await t.delete(userGroupDocRef)
 		await incrementOnTransaction(t, groupDocRef, 'totalUsers', -1)
@@ -173,39 +181,53 @@ export const leave = functions.https.onCall(({ gid }: { gid: string }, { auth })
 });
 
 //
+// When a user group cant find its relative group
+// it means group has been deleted and this function will be called to remove both user-group and group-user models
+//
+export const removeDeletedGroupLeftOver = functions.https.onCall(async ({ gid }: { gid: string }, { auth }) => {
+
+	if (!auth) {
+		return new functions.https.HttpsError('unauthenticated', 'You need to login by phone firstly.');
+	}
+
+	// let isGroupExist = await admin.firestore().doc(COLLS.GROUP_DOC(gid)).get().then(sp => Object.keys(sp.data() || {}).length);
+
+	// if (!isGroupExist) {
+	// 	return new functions.https.HttpsError('failed-precondition', 'Group has not been removed yet.');
+	// }
+
+	//
+	// Refrences
+	//
+	let userGroupDocRef = admin.firestore().doc(COLLS.USER_GROUP_DOC(auth.uid, gid))
+	let groupUsersDocRef = admin.firestore().doc(COLLS.GROUP_USER_DOC(gid, auth.uid));
+
+	await userGroupDocRef.delete();
+	await groupUsersDocRef.delete();
+
+	return true;
+});
+
+//
 // Delete a group
 //
 export const remove = functions
-	.runWith({
-		timeoutSeconds: 540,
-		memory: '2GB'
-	})
 	.https.onCall(async ({ gid }: { gid: string }, { auth }) => {
 
 		if (!auth) {
 			return new functions.https.HttpsError('unauthenticated', 'You need to login by phone firstly.');
 		}
 
-		/**
-		 * Initiate a recursive delete of documents at a given path.
-		 * 
-		 * The calling user must be authenticated and have the custom "admin" attribute
-		 * set to true on the auth token.
-		 * 
-		 * This delete is NOT an atomic operation and it's possible
-		 * that it may fail after only deleting some documents.
-		 * 
-		 * @param {string} data.path the document or collection path to delete.
-		 */
+		let creatorId = await admin.firestore().doc(COLLS.GROUP_DOC(gid)).get().then(sp => {
+			if (!sp.exists)
+				return null;
 
-		// Run a recursive delete on the given document or collection path.
-		// The 'token' must be set in the functions config, and can be generated
-		// at the command line by running 'firebase login:ci'.
-		return await firebaseTools.firestore
-			.delete(COLLS.GROUP_DOC(gid), {
-				project: process.env.GCLOUD_PROJECT,
-				recursive: true,
-				yes: true,
-				token: functions.config().fb.token
-			});
+			return sp.data()!.creatorId as String;
+		})
+
+		if (!creatorId || creatorId != auth.uid) {
+			return new functions.https.HttpsError('permission-denied', 'You are not the creator of the group.');
+		}
+
+		return admin.firestore().doc(COLLS.GROUP_DOC(gid)).delete()
 	});
