@@ -1,8 +1,9 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { COLLS } from './constants/storage';
-import { Group, GroupUser, UserGroup } from './types/group';
-import { incrementOnTransaction } from './utils/incrmentor';
+import { COLLS } from '../constants/storage';
+import { Group, GroupUser, UserGroup } from '../types/group';
+import { incrementOnTransaction } from '../utils/incrmentor';
+import { NotificationService } from '../modules/notification/service';
 
 let groupCollection = admin.firestore().collection(COLLS.GROUP_COLLECTION);
 
@@ -63,7 +64,7 @@ export const create = functions.https.onCall(
 //
 // JOIN REQUET TO A GROUP
 //
-export const join = functions.https.onCall(async ({ gid, uid, }: { gid: string, uid: string }, { auth }) => {
+export const join = functions.https.onCall(async ({ gid, fullName, }: { gid: string, uid: string, fullName: string, }, { auth }) => {
 
 	if (!auth) {
 		return new functions.https.HttpsError('unauthenticated', 'You need to login by phone firstly.');
@@ -72,8 +73,8 @@ export const join = functions.https.onCall(async ({ gid, uid, }: { gid: string, 
 	//
 	// Refrences
 	//
-	let userGroupDocRef = admin.firestore().doc(COLLS.USER_GROUP_DOC(uid || auth.uid, gid))
-	let groupUsersDocRef = admin.firestore().doc(COLLS.GROUP_USER_DOC(gid, uid || auth.uid));
+	let userGroupDocRef = admin.firestore().doc(COLLS.USER_GROUP_DOC(auth.uid, gid))
+	let groupUsersDocRef = admin.firestore().doc(COLLS.GROUP_USER_DOC(gid, auth.uid));
 
 	let groupDocRef = admin.firestore().doc(COLLS.GROUP_DOC(gid));
 	let group = await groupDocRef.get().then(sp => sp.data() as Group);
@@ -95,7 +96,7 @@ export const join = functions.https.onCall(async ({ gid, uid, }: { gid: string, 
 		// Add  user to group
 		let newUserOfGroup: GroupUser = {
 			status: status,
-			uid: uid || auth.uid,
+			uid: auth.uid,
 			gid: gid,
 			isAdmin: false,
 			createdAt: admin.firestore.FieldValue.serverTimestamp()
@@ -106,7 +107,7 @@ export const join = functions.https.onCall(async ({ gid, uid, }: { gid: string, 
 		let userGroup: UserGroup = {
 			status: status,
 			gid: gid,
-			uid: uid || auth.uid,
+			uid: auth.uid,
 			isOwner: false,
 			createdAt: admin.firestore.FieldValue.serverTimestamp()
 		};
@@ -117,6 +118,17 @@ export const join = functions.https.onCall(async ({ gid, uid, }: { gid: string, 
 			await incrementOnTransaction(t, groupDocRef, 'totalUsers', 1);
 	})
 		.then(_ => {
+
+			// Inform Group admin
+			NotificationService.getInstance().createNotificationFromUseridAsSender({
+				action: 'GOTO_REQUESTS',
+				sid: auth?.uid!,
+				toid: group.creatorId,
+				title: '',
+				subtitle: `${fullName} wants to join ${group.title} commiunity`,
+				data: { gid, uid: auth.uid, fullName }
+			});
+
 			return groupUsersDocRef.get().then(_ => _.data());
 		})
 })
@@ -124,8 +136,8 @@ export const join = functions.https.onCall(async ({ gid, uid, }: { gid: string, 
 //
 // ACCEPT JOIN REQUET BY GROUP ADMIN
 //
-interface AcceptContext { gid: string, uid: string, accepted: Boolean };
-export const accept = functions.https.onCall(({ gid, uid, accepted, }: AcceptContext, { auth }) => {
+interface AcceptContext { gid: string, uid: string, accepted: Boolean, fullName: string };
+export const accept = functions.https.onCall(async ({ gid, uid, accepted, fullName, }: AcceptContext, { auth }) => {
 
 	if (!auth) {
 		return new functions.https.HttpsError('unauthenticated', 'You need to login by phone firstly.');
@@ -137,6 +149,8 @@ export const accept = functions.https.onCall(({ gid, uid, accepted, }: AcceptCon
 	let userGroupDocRef = admin.firestore().doc(COLLS.USER_GROUP_DOC(uid, gid))
 	let groupDocRef = admin.firestore().doc(COLLS.GROUP_DOC(gid));
 	let groupUsersDocRef = admin.firestore().doc(COLLS.GROUP_USER_DOC(gid, uid));
+
+	let group = await groupDocRef.get().then(sp => sp.data() as Group);
 
 
 	return admin.firestore().runTransaction(async (t) => {
@@ -151,7 +165,19 @@ export const accept = functions.https.onCall(({ gid, uid, accepted, }: AcceptCon
 			await t.delete(groupUsersDocRef)
 			await t.delete(userGroupDocRef)
 		}
-	})
+	}).then(_ => {
+
+		// Inform User from request result
+		var actionTitle = accepted ? 'accepted' : 'rejected';
+		NotificationService.getInstance().createNotificationFromUseridAsSender({
+			action: 'GOTO_GROUP_PROFILE',
+			sid: auth?.uid!,
+			toid: uid,
+			title: '',
+			subtitle: `${fullName} ${actionTitle} your request for ${group.title} commiunity`,
+			data: { gid }
+		});
+	});
 })
 
 //

@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-// import { COLLS } from './constants/storage';
-// import { incrementOnTransaction } from './utils/incrmentor';
+// import { COLLS } from '../constants/storage';
+// import { incrementOnTransaction } from '../utils/incrmentor';
 
 
 export const onCreate = functions.firestore.document('files/{fileId}').onCreate(async (sp, context) => {

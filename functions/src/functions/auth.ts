@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { COLLS } from './constants/storage';
+import { COLLS } from '../constants/storage';
 
 function reportCount(path: string, increment: number = 1) {
 	// Update count

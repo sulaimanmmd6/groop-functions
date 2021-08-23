@@ -1,6 +1,6 @@
 import { https, } from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import {COLLS} from './constants/storage';
+import {COLLS} from '../constants/storage';
 
 let userCollection = admin.firestore().collection(COLLS.USER_COLLECTION);
 

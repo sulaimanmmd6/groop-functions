@@ -14,6 +14,8 @@ export const COLLS = {
 	GROUP_POST_DOC: (gid: string, pid: string) => `group/${gid}/g_posts/${pid}`,
 	GROUP_POST_LIKE_COLLECTION: (gid: string, pid: string) => `group/${gid}/g_posts/${pid}/p_likes`,
 
+	NOTIFICATION: 'notification',
+
 	//
 	// Firebase Storage
 	//
