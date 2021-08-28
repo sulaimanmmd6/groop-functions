@@ -14,6 +14,7 @@ export interface CommentModel extends BaseModel {
 }
 
 export interface PostModel extends BaseModel {
+	id: string,
 	text: string;
 	gid: string;
 	uid: string;

@@ -18,6 +18,8 @@ export const onPostAdded = functions.runWith({
 }).firestore.document('group/{gid}/g_posts/{pid}')
 	.onCreate(async (sp, { params }) => {
 		let post = sp.data() as PostModel;
+		post.id = params['pid'];
+		
 		let creator = await UserService.getInstance().getById(post.uid);
 
 		if (!creator) return;
