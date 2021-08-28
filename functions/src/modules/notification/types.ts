@@ -1,3 +1,5 @@
+import { BaseModel } from "../../types/base_model";
+
 export interface SendOptions {
 	to: string,
 	data: any,
@@ -7,7 +9,7 @@ export interface SendOptions {
 	subtitle: string,
 }
 
-export interface NotificationModel {
+export interface NotificationModel extends BaseModel {
 	sid: string,
 	toid: string,
 	action: 'OPEN_URL' | 'GOTO_COMMENT' | 'GOTO_POST' | 'GOTO_GROUP_PROFILE' | 'GOTO_GROUP_WALL' | 'GOTO_USER_PROFILE' | 'GOTO_MY_PROFILE' | 'GOTO_NOTIFICATIONS' | 'GOTO_REQUESTS' | 'GOTO_HOME' ,

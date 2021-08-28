@@ -3,26 +3,72 @@ import * as admin from 'firebase-admin';
 import { COLLS } from '../constants/storage';
 import { incrementOnTransaction } from '../utils/incrmentor';
 import { NotificationService } from '../modules/notification/service';
-import { CommentModel } from '../types/post';
+import { CommentModel, PostModel } from '../types/post';
+import { UserService } from '../modules/user/service';
+import { runCursor } from '../utils/cursor';
+import { Group, GroupUser } from '../types/group';
 
+//
+// Send notification for all users group
+// when a post added to a group
+//
+export const onPostAdded = functions.runWith({
+	memory: '4GB',
+	timeoutSeconds: 540,
+}).firestore.document('group/{gid}/g_posts/{pid}')
+	.onCreate(async (sp, { params }) => {
+		let post = sp.data() as PostModel;
+		let creator = await UserService.getInstance().getById(post.uid);
+
+		if (!creator) return;
+
+		let group = await admin.firestore().doc(COLLS.GROUP_DOC(post.gid)).get().then(sp => sp.data() as Group);
+
+		await runCursor({
+			collection: COLLS.GROUP_USERS_COLLECTION(post.gid),
+			limit: 2000,
+			orderBy: 'uid',
+			onDone: () => { },
+			onDoc: async (docSP) => {
+				var receiverUser = docSP.data() as GroupUser;
+
+				console.time('send notification ' + receiverUser.uid);
+
+				await NotificationService.getInstance().addNotificationToQueue({
+					action: 'GOTO_POST',
+					sid: post.uid,
+					senderImag: creator?.image || group.image,
+					toid: receiverUser.uid,
+					title: '',
+					subtitle: `${creator?.fullName} posted in group ${group.title}.`,
+					data: post,
+					createdAt: admin.firestore.FieldValue.serverTimestamp(),
+				});
+
+				console.timeLog('send notification ' + receiverUser.uid);
+			},
+		});
+	});
 
 export const onCommentAdded = functions.firestore.document('group/{gid}/g_posts/{pid}/p_comments/{cid}')
 	.onCreate(async (sp, { params }) => {
 		let PostRef = admin.firestore().doc(COLLS.GROUP_POST_DOC(params.gid, params.pid));
 		let comment: CommentModel = sp.data() as CommentModel;
+		let group = await admin.firestore().doc(COLLS.GROUP_DOC(params.gid)).get().then(sp => sp.data() as Group);
 
 		await admin.firestore().runTransaction(async (t) => {
 			await incrementOnTransaction(t, PostRef, 'comments', 1);
 		});
 
 		// notify post creator
-		NotificationService.getInstance().createNotificationFromUseridAsSender({
+		NotificationService.getInstance().addNotificationToQueue({
 			action: 'GOTO_COMMENT',
 			sid: comment.uid,
 			toid: comment.creatorId,
 			title: '',
-			subtitle: `${comment.fullName} commented on your post`,
+			subtitle: `${comment.fullName} commented on your post in group ${group.title}.`,
 			data: comment,
+			createdAt: admin.firestore.FieldValue.serverTimestamp(),
 		});
 	});
 
@@ -42,6 +88,8 @@ export const toggleLike = functions.https.onCall(
 		let likeRef = admin.firestore().collection(COLLS.GROUP_POST_LIKE_COLLECTION(groupId, postId))
 			.doc(auth?.uid!);
 
+		let group = await admin.firestore().doc(COLLS.GROUP_DOC(groupId)).get().then(sp => sp.data() as Group);
+
 		let isLiked = await likeRef.get().then(sp => sp.exists);
 
 		return admin.firestore().runTransaction(async (t) => {
@@ -58,15 +106,16 @@ export const toggleLike = functions.https.onCall(
 				await incrementOnTransaction(t, PostRef, 'likes', 1);
 
 				// notify post creator
-				NotificationService.getInstance().createNotificationFromUseridAsSender({
+				NotificationService.getInstance().addNotificationToQueue({
 					action: 'GOTO_POST',
 					sid: auth?.uid!,
 					toid: creatorId,
 					title: '',
-					subtitle: `${fullName} liked your post`,
+					subtitle: `${fullName} liked your post in group ${group.title}.`,
 					data: {
 						postId, groupId, creatorId,
 					},
+					createdAt: admin.firestore.FieldValue.serverTimestamp(),
 				});
 			}
 

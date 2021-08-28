@@ -12,3 +12,14 @@ export interface CommentModel extends BaseModel {
 	likes: string
 	fullName: string
 }
+
+export interface PostModel extends BaseModel {
+	text: string;
+	gid: string;
+	uid: string;
+	status: 'WAITTING_FOR_MEDIA_UPLOAD' | 'PUBLISHED';
+	likes: number;
+	comments: number;
+	shares: number;
+	videoId: string;
+}

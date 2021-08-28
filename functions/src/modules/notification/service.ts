@@ -4,6 +4,7 @@ import { UserService } from "../user/service";
 import { NotificationModel } from "./types";
 import { COLLS } from '../../constants/storage';
 import { OneSignalSender } from './onesignal_sender';
+import { UserModel } from '../user/types';
 
 var sender = OneSignalSender.getInstance();
 
@@ -20,31 +21,31 @@ export class NotificationService {
 		return NotificationService.instance;
 	}
 
-	async createNotificationFromUseridAsSender(notification: NotificationModel) {
+	async sendNotification(notification: NotificationModel) {
 
 		// Find sender user
-		var senderUser = await UserService.getInstance().getById(notification.sid);
-		if (!senderUser) return;
+		var senderUser: UserModel | null = null;
+
+		senderUser = await UserService.getInstance().getById(notification.sid);
 
 		// Find reciever 
 		var receiverUser = await UserService.getInstance().getById(notification.toid);
+
 		if (!senderUser || !receiverUser?.pushToken) return;
 
-		// Store notification
-		await this.storeNotification(notification);
-
 		// Send notification
-		await sender.send({
+		return sender.send({
 			data: notification,
 			to: receiverUser.pushToken,
 			subtitle: notification.subtitle,
 			title: notification.title,
-			bigIcon: notification.senderImag || senderUser.image,
+			bigIcon: notification.senderImag || senderUser?.image,
 			url: notification.url,
-		});
+		})
+			.catch(console.log);
 	}
 
-	private storeNotification(notification: NotificationModel) {
+	addNotificationToQueue(notification: NotificationModel) {
 		return admin.firestore().collection(COLLS.NOTIFICATION)
 			.add(notification);
 	}

@@ -88,10 +88,10 @@ export const join = functions.https.onCall(async ({ gid, fullName, }: { gid: str
 		return new functions.https.HttpsError('already-exists', 'User has been join already.');
 	}
 
+	let status: "ACCEPTED" | "REQUESTED" = group.type == 'PUBLIC' ? 'ACCEPTED' : 'REQUESTED';
 
 	return admin.firestore().runTransaction(async (t) => {
 
-		let status: "ACCEPTED" | "REQUESTED" = group.type == 'PUBLIC' ? 'ACCEPTED' : 'REQUESTED';
 
 		// Add  user to group
 		let newUserOfGroup: GroupUser = {
@@ -120,14 +120,28 @@ export const join = functions.https.onCall(async ({ gid, fullName, }: { gid: str
 		.then(_ => {
 
 			// Inform Group admin
-			NotificationService.getInstance().createNotificationFromUseridAsSender({
-				action: 'GOTO_REQUESTS',
-				sid: auth?.uid!,
-				toid: group.creatorId,
-				title: '',
-				subtitle: `${fullName} wants to join ${group.title} commiunity`,
-				data: { gid, uid: auth.uid, fullName }
-			});
+			if (status == 'REQUESTED') {
+				NotificationService.getInstance().addNotificationToQueue({
+					action: 'GOTO_REQUESTS',
+					sid: auth?.uid!,
+					toid: group.creatorId,
+					title: '',
+					subtitle: `Your group ${group.title} recieved a join request.`,
+					data: { gid, uid: auth.uid, fullName },
+					createdAt: admin.firestore.FieldValue.serverTimestamp(),
+				});
+			} else {
+				NotificationService.getInstance().addNotificationToQueue({
+					action: 'GOTO_GROUP_PROFILE',
+					sid: auth?.uid!,
+					toid: group.creatorId,
+					title: '',
+					subtitle: `${fullName} joined the group ${group.title}.`,
+					data: { gid, uid: auth.uid, fullName },
+					createdAt: admin.firestore.FieldValue.serverTimestamp(),
+				});
+			}
+
 
 			return groupUsersDocRef.get().then(_ => _.data());
 		})
@@ -169,13 +183,14 @@ export const accept = functions.https.onCall(async ({ gid, uid, accepted, fullNa
 
 		// Inform User from request result
 		var actionTitle = accepted ? 'accepted' : 'rejected';
-		NotificationService.getInstance().createNotificationFromUseridAsSender({
+		NotificationService.getInstance().addNotificationToQueue({
 			action: 'GOTO_GROUP_PROFILE',
 			sid: auth?.uid!,
 			toid: uid,
 			title: '',
-			subtitle: `${fullName} ${actionTitle} your request for ${group.title} commiunity`,
-			data: { gid }
+			subtitle: `${fullName} ${actionTitle} your join request for group ${group.title}.`,
+			data: { gid },
+			createdAt: admin.firestore.FieldValue.serverTimestamp(),
 		});
 	});
 })

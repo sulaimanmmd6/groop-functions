@@ -7,4 +7,5 @@ exports.auth = require('./functions/auth');
 exports.user = require('./functions/user');
 exports.group = require('./functions/group');
 exports.post = require('./functions/post');
+exports.notification = require('./modules/notification/function');
 // exports.file = require('./file');
