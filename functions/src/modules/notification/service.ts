@@ -21,7 +21,7 @@ export class NotificationService {
 		return NotificationService.instance;
 	}
 
-	async sendNotification(notification: NotificationModel) {
+	async sendNotification(id: string, notification: NotificationModel) {
 
 		// Find sender user
 		var senderUser: UserModel | null = null;
@@ -33,9 +33,18 @@ export class NotificationService {
 
 		if (!senderUser || !receiverUser?.pushToken) return;
 
+		// update sender image
+		admin.firestore().collection(COLLS.NOTIFICATION).doc(id).update({
+			senderImag: notification.senderImag || senderUser?.image,
+			seen: false,
+		})
+
 		// Send notification
 		return sender.send({
-			data: notification,
+			data: {
+				...notification,
+				senderImag: notification.senderImag || senderUser?.image,
+			},
 			to: receiverUser.pushToken,
 			subtitle: notification.subtitle,
 			title: notification.title,

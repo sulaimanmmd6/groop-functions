@@ -129,6 +129,9 @@ export const join = functions.https.onCall(async ({ gid, fullName, }: { gid: str
 					subtitle: `Your group ${group.title} recieved a join request.`,
 					data: { gid, uid: auth.uid, fullName },
 					createdAt: admin.firestore.FieldValue.serverTimestamp(),
+					boldWordsInDescription: [
+						group.title,
+					]
 				});
 			} else {
 				NotificationService.getInstance().addNotificationToQueue({
@@ -139,6 +142,9 @@ export const join = functions.https.onCall(async ({ gid, fullName, }: { gid: str
 					subtitle: `${fullName} joined the group ${group.title}.`,
 					data: { gid, uid: auth.uid, fullName },
 					createdAt: admin.firestore.FieldValue.serverTimestamp(),
+					boldWordsInDescription: [
+						fullName, group.title,
+					]
 				});
 			}
 
@@ -191,6 +197,9 @@ export const accept = functions.https.onCall(async ({ gid, uid, accepted, fullNa
 			subtitle: `${fullName} ${actionTitle} your join request for group ${group.title}.`,
 			data: { gid },
 			createdAt: admin.firestore.FieldValue.serverTimestamp(),
+			boldWordsInDescription: [
+				actionTitle, group.title
+			]
 		});
 	});
 })

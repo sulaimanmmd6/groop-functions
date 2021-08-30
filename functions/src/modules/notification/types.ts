@@ -12,10 +12,13 @@ export interface SendOptions {
 export interface NotificationModel extends BaseModel {
 	sid: string,
 	toid: string,
-	action: 'OPEN_URL' | 'GOTO_COMMENT' | 'GOTO_POST' | 'GOTO_GROUP_PROFILE' | 'GOTO_GROUP_WALL' | 'GOTO_USER_PROFILE' | 'GOTO_MY_PROFILE' | 'GOTO_NOTIFICATIONS' | 'GOTO_REQUESTS' | 'GOTO_HOME' ,
+	action: 'OPEN_URL' | 'GOTO_COMMENT' | 'GOTO_POST' | 'GOTO_GROUP_PROFILE' | 'GOTO_GROUP_WALL' | 'GOTO_USER_PROFILE' | 'GOTO_MY_PROFILE' | 'GOTO_NOTIFICATIONS' | 'GOTO_REQUESTS' | 'GOTO_HOME',
 	subtitle: string,
 	title?: string,
 	url?: string,
 	senderImag?: string,
-	data?: any
+	data?: any,
+
+	/// This array helps client to show these works in bold style on render time.
+	boldWordsInDescription: string[]
 }

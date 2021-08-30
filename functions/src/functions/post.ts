@@ -19,7 +19,7 @@ export const onPostAdded = functions.runWith({
 	.onCreate(async (sp, { params }) => {
 		let post = sp.data() as PostModel;
 		post.id = params['pid'];
-		
+
 		let creator = await UserService.getInstance().getById(post.uid);
 
 		if (!creator) return;
@@ -45,6 +45,9 @@ export const onPostAdded = functions.runWith({
 					subtitle: `${creator?.fullName} posted in group ${group.title}.`,
 					data: post,
 					createdAt: admin.firestore.FieldValue.serverTimestamp(),
+					boldWordsInDescription: [
+						creator?.fullName!, group.title,
+					]
 				});
 
 				console.timeLog('send notification ' + receiverUser.uid);
@@ -71,6 +74,9 @@ export const onCommentAdded = functions.firestore.document('group/{gid}/g_posts/
 			subtitle: `${comment.fullName} commented on your post in group ${group.title}.`,
 			data: comment,
 			createdAt: admin.firestore.FieldValue.serverTimestamp(),
+			boldWordsInDescription: [
+				comment.fullName, group.title,
+			]
 		});
 	});
 
@@ -118,6 +124,9 @@ export const toggleLike = functions.https.onCall(
 						postId, groupId, creatorId,
 					},
 					createdAt: admin.firestore.FieldValue.serverTimestamp(),
+					boldWordsInDescription: [
+						fullName, group.title,
+					]
 				});
 			}
 
