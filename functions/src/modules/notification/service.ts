@@ -44,6 +44,7 @@ export class NotificationService {
 			data: {
 				...notification,
 				senderImag: notification.senderImag || senderUser?.image,
+				id: id,
 			},
 			to: receiverUser.pushToken,
 			subtitle: notification.subtitle,
