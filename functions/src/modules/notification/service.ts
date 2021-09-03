@@ -32,6 +32,7 @@ export class NotificationService {
 		var receiverUser = await UserService.getInstance().getById(notification.toid);
 
 		if (!senderUser || !receiverUser?.pushToken) return;
+		
 
 		// update sender image
 		admin.firestore().collection(COLLS.NOTIFICATION).doc(id).update({
@@ -56,6 +57,10 @@ export class NotificationService {
 	}
 
 	addNotificationToQueue(notification: NotificationModel) {
+		if(notification.sid == notification.toid) {
+			return;
+		}
+
 		return admin.firestore().collection(COLLS.NOTIFICATION)
 			.add(notification);
 	}

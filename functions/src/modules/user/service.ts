@@ -21,8 +21,17 @@ export class UserService {
 	getById(uid: string): Promise<UserModel | null> {
 		return this._collection.doc(uid).get()
 			.then(sp => {
-				if (sp.exists) return sp.data() as UserModel;
-				else return null;
+				let user = {};
+
+				Object.assign(user, sp.data(), {id:sp.id});
+
+				
+				if (sp.exists)  {
+					return user as UserModel;
+				}
+				else {
+					return null;
+				}
 			});
 	}
 }
